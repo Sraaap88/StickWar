@@ -23,11 +23,18 @@ jobs:
 
     - name: Setup Gradle wrapper properly
       run: |
+        echo "=== Creating wrapper directory ==="
         mkdir -p gradle/wrapper
+        echo "=== Downloading wrapper jar ==="
         curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.5.0/gradle/wrapper/gradle-wrapper.jar
+        echo "=== Making gradlew executable ==="
         chmod +x gradlew
+        echo "=== Creating local.properties ==="
         echo "sdk.dir=$ANDROID_HOME" > local.properties
-        ./gradlew wrapper --gradle-version=7.5
+        echo "=== Contents of gradle-wrapper.properties ==="
+        cat gradle/wrapper/gradle-wrapper.properties
+        echo "=== Testing gradle wrapper ==="
+        ./gradlew --version
 
     - name: List project structure
       run: |
