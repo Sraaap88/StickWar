@@ -10,7 +10,7 @@ android {
     defaultConfig {
         applicationId "com.example.stickwar"
         minSdk 28
-        targetSdk 30
+        targetSdk 30  // Plus compatible avec Huawei
         versionCode 1
         versionName "1.0"
     }
