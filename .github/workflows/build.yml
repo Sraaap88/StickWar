@@ -35,7 +35,13 @@ jobs:
         find . -type f -name "*.xml" -o -name "*.kt" -o -name "*.gradle" | head -20
 
     - name: Build debug APK with verbose output
-      run: ./gradlew assembleDebug --stacktrace --info
+      run: |
+        echo "=== Gradle version ==="
+        ./gradlew --version
+        echo "=== Tasks available ==="
+        ./gradlew tasks --all | grep -i assemble
+        echo "=== Building APK ==="
+        ./gradlew clean assembleDebug --stacktrace --info --no-daemon
 
     - name: List all build outputs
       run: |
