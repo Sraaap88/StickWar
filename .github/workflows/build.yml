@@ -26,3 +26,10 @@ jobs:
       
     - name: Build debug APK
       run: ./gradlew assembleDebug
+      
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: stickwar-debug-apk
+        path: app/build/outputs/apk/debug/*.apk
+        retention-days: 30
