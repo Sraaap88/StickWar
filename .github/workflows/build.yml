@@ -1,35 +1,47 @@
-name: Build StickWar
+name: Build StickWar APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Set up JDK 11
+
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
-        distribution: 'adopt'
-        
-    - name: Download Gradle Wrapper
-      run: |
-        mkdir -p gradle/wrapper
-        curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.5.0/gradle/wrapper/gradle-wrapper.jar
-        chmod +x gradlew
-      
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Setup Gradle 7.5
+      uses: gradle/gradle-build-action@v2
+      with:
+        gradle-version: 7.5
+
     - name: Build debug APK
-      run: ./gradlew assembleDebug
-      
-    - name: Upload APK artifact
+      run: gradle assembleDebug
+
+    - name: Build release APK
+      run: gradle assembleRelease
+
+    - name: Upload Debug APK
       uses: actions/upload-artifact@v4
       with:
-        name: stickwar-debug-apk
-        path: app/build/outputs/apk/debug/*.apk
-        retention-days: 30
+        name: stickwar-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Release APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: stickwar-release-unsigned
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
