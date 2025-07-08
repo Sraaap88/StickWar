@@ -28,8 +28,18 @@ jobs:
         chmod +x gradlew
         ./gradlew wrapper --gradle-version=7.5
 
-    - name: Build debug APK
-      run: ./gradlew assembleDebug --stacktrace
+    - name: List project structure
+      run: |
+        echo "=== Project structure ==="
+        find . -type f -name "*.xml" -o -name "*.kt" -o -name "*.gradle" | head -20
+
+    - name: Build debug APK with verbose output
+      run: ./gradlew assembleDebug --stacktrace --info
+
+    - name: List all build outputs
+      run: |
+        echo "=== Build outputs ==="
+        find . -path "*/build/outputs/*" -type f | head -20
 
     - name: Find APK files
       run: find . -name "*.apk" -type f
