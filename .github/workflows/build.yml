@@ -26,6 +26,7 @@ jobs:
         mkdir -p gradle/wrapper
         curl -L -o gradle/wrapper/gradle-wrapper.jar https://github.com/gradle/gradle/raw/v7.5.0/gradle/wrapper/gradle-wrapper.jar
         chmod +x gradlew
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
         ./gradlew wrapper --gradle-version=7.5
 
     - name: List project structure
