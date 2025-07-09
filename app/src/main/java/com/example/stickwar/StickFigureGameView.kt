@@ -43,8 +43,8 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         super.onSizeChanged(w, h, oldw, oldh)
         centerY = h / 2f
         stickX = w / 2f
-        stickY = centerY
-        baseY = centerY
+        stickY = h * 0.75f  // Plus bas pour qu'il marche sur le sol
+        baseY = h * 0.75f   // Sol à 75% de l'écran
         
         startAnimation()
     }
@@ -98,26 +98,32 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        canvas.drawRect(0f, 0f, width.toFloat(), height/2f, blackPaint)
-        canvas.drawRect(0f, height/2f, width.toFloat(), height.toFloat(), whitePaint)
+        // Fond blanc en haut, noir en bas (sol)
+        val groundY = height * 0.6f  // Sol à 60% de l'écran
+        canvas.drawRect(0f, 0f, width.toFloat(), groundY, whitePaint)
+        canvas.drawRect(0f, groundY, width.toFloat(), height.toFloat(), blackPaint)
         
+        // Ligne de sol
         val linePaint = Paint().apply {
             color = Color.GRAY
-            strokeWidth = 4f
+            strokeWidth = 6f
         }
-        canvas.drawLine(0f, height/2f, width.toFloat(), height/2f, linePaint)
+        canvas.drawLine(0f, groundY, width.toFloat(), groundY, linePaint)
         
         drawStickFigure(canvas, stickX, stickY)
         
-        debugPaint.color = if (stickY < centerY) Color.WHITE else Color.BLACK
+        // Debug toujours visible
+        debugPaint.color = Color.RED
         canvas.drawText(debugMessage, 20f, 60f, debugPaint)
-        canvas.drawText("Action: $lastAction", 20f, height - 20f, debugPaint)
+        canvas.drawText("Action: $lastAction", 20f, height - 60f, debugPaint)
     }
     
     private fun drawStickFigure(canvas: Canvas, x: Float, y: Float) {
         val size = 120f * scale
         
-        stickPaint.color = if (y < centerY) Color.WHITE else Color.BLACK
+        // Bonhomme TOUJOURS en rouge pour être visible partout
+        stickPaint.color = Color.RED
+        stickPaint.strokeWidth = 10f  // Plus épais pour mieux voir
         
         // Attitude - balancement du corps
         val bodySwagger = sin(walkCycle * 0.3f) * 3f
@@ -127,27 +133,26 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         
         // === TÊTE AVEC ATTITUDE ===
         val headRadius = size/8
-        val headY = y - size * 0.4f
+        val headY = y - size * 0.8f  // Plus haut
         canvas.drawCircle(x, headY, headRadius, stickPaint)
         
         // === CORPS ===
-        val bodyTop = y - size * 0.3f
-        val bodyBottom = y + size * 0.1f
+        val bodyTop = y - size * 0.7f
+        val bodyBottom = y - size * 0.2f
         canvas.drawLine(x, bodyTop, x, bodyBottom, stickPaint)
         
-        // === BRAS AVEC COUDES ET ATTITUDE ===
+        // === BRAS AVEC COUDES ===
         val shoulderY = bodyTop + size * 0.15f
         val armLength = size * 0.3f
         
-        // Balancement des bras avec attitude
         val armSwing = when (actionAnimation) {
-            "SHOOT" -> 45f // Bras tendus pour tirer
-            "EXPLODE" -> sin(animationTime * 25) * 60f // Mouvement frénétique
-            "JUMP" -> -30f // Bras vers le haut
-            else -> sin(walkCycle) * 20f + 10f // Balancement naturel avec style
+            "SHOOT" -> 45f
+            "EXPLODE" -> sin(animationTime * 25) * 60f
+            "JUMP" -> -30f
+            else -> sin(walkCycle) * 20f + 10f
         }
         
-        // BRAS GAUCHE (épaule -> coude -> main)
+        // BRAS GAUCHE
         val leftShoulderAngle = 30f + armSwing
         val leftElbowX = x - armLength * 0.6f * cos(Math.toRadians(leftShoulderAngle.toDouble())).toFloat()
         val leftElbowY = shoulderY + armLength * 0.6f * sin(Math.toRadians(leftShoulderAngle.toDouble())).toFloat()
@@ -159,7 +164,7 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         canvas.drawLine(x, shoulderY, leftElbowX, leftElbowY, stickPaint)
         canvas.drawLine(leftElbowX, leftElbowY, leftHandX, leftHandY, stickPaint)
         
-        // BRAS DROIT (épaule -> coude -> main)
+        // BRAS DROIT
         val rightShoulderAngle = 150f - armSwing
         val rightElbowX = x + armLength * 0.6f * cos(Math.toRadians(rightShoulderAngle.toDouble())).toFloat()
         val rightElbowY = shoulderY + armLength * 0.6f * sin(Math.toRadians(rightShoulderAngle.toDouble())).toFloat()
@@ -171,37 +176,31 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         canvas.drawLine(x, shoulderY, rightElbowX, rightElbowY, stickPaint)
         canvas.drawLine(rightElbowX, rightElbowY, rightHandX, rightHandY, stickPaint)
         
-        // === JAMBES AVEC GENOUX ET ATTITUDE ===
+        // === JAMBES AVEC GENOUX - ANGLES CORRIGÉS ===
         val hipY = bodyBottom
-        val legLength = size * 0.35f
+        val legLength = size * 0.4f
         
-        // Démarche avec attitude - pas plus prononcés
+        // Démarche réaliste vers l'AVANT/ARRIÈRE
         val leftLegCycle = walkCycle
         val rightLegCycle = walkCycle + PI.toFloat()
         
-        val leftLegSwing = sin(leftLegCycle) * 35f
-        val rightLegSwing = sin(rightLegCycle) * 35f
+        val leftLegForward = sin(leftLegCycle) * 25f  // Avant/arrière
+        val rightLegForward = sin(rightLegCycle) * 25f
         
-        // JAMBE GAUCHE (hanche -> genou -> pied)
-        val leftThighAngle = 90f + leftLegSwing
-        val leftKneeX = x + legLength * 0.7f * sin(Math.toRadians(leftThighAngle.toDouble())).toFloat()
-        val leftKneeY = hipY + legLength * 0.7f * cos(Math.toRadians(leftThighAngle.toDouble())).toFloat()
-        
-        val leftShinAngle = leftThighAngle + 30f + abs(leftLegSwing) * 0.5f
-        val leftFootX = leftKneeX + legLength * 0.6f * sin(Math.toRadians(leftShinAngle.toDouble())).toFloat()
-        val leftFootY = leftKneeY + legLength * 0.6f * cos(Math.toRadians(leftShinAngle.toDouble())).toFloat()
+        // JAMBE GAUCHE - marche vers l'avant
+        val leftKneeX = x + leftLegForward * 0.3f  // Genou suit le mouvement
+        val leftKneeY = hipY + legLength * 0.5f
+        val leftFootX = x + leftLegForward  // Pied va plus loin
+        val leftFootY = y  // Sur le sol
         
         canvas.drawLine(x, hipY, leftKneeX, leftKneeY, stickPaint)
         canvas.drawLine(leftKneeX, leftKneeY, leftFootX, leftFootY, stickPaint)
         
-        // JAMBE DROITE (hanche -> genou -> pied)
-        val rightThighAngle = 90f + rightLegSwing
-        val rightKneeX = x + legLength * 0.7f * sin(Math.toRadians(rightThighAngle.toDouble())).toFloat()
-        val rightKneeY = hipY + legLength * 0.7f * cos(Math.toRadians(rightThighAngle.toDouble())).toFloat()
-        
-        val rightShinAngle = rightThighAngle + 30f + abs(rightLegSwing) * 0.5f
-        val rightFootX = rightKneeX + legLength * 0.6f * sin(Math.toRadians(rightShinAngle.toDouble())).toFloat()
-        val rightFootY = rightKneeY + legLength * 0.6f * cos(Math.toRadians(rightShinAngle.toDouble())).toFloat()
+        // JAMBE DROITE - marche vers l'avant
+        val rightKneeX = x + rightLegForward * 0.3f
+        val rightKneeY = hipY + legLength * 0.5f
+        val rightFootX = x + rightLegForward
+        val rightFootY = y  // Sur le sol
         
         canvas.drawLine(x, hipY, rightKneeX, rightKneeY, stickPaint)
         canvas.drawLine(rightKneeX, rightKneeY, rightFootX, rightFootY, stickPaint)
