@@ -1,3 +1,6 @@
+ction = "EXPLOSION!"
+    }
+}
 package com.example.stickwar
 
 import android.content.Context
