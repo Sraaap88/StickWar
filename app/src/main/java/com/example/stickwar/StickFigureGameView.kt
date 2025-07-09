@@ -119,66 +119,89 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         
         stickPaint.color = if (y < centerY) Color.WHITE else Color.BLACK
         
-        val wobble = when (actionAnimation) {
-            "JUMP" -> sin(animationTime * 10) * 5f
-            "SHOOT" -> sin(animationTime * 20) * 3f
-            "EXPLODE" -> sin(animationTime * 30) * 8f
-            else -> sin(walkCycle * 0.5f) * 1f
-        }
+        // Attitude - balancement du corps
+        val bodySwagger = sin(walkCycle * 0.3f) * 3f
         
         canvas.save()
-        canvas.translate(wobble, 0f)
+        canvas.translate(bodySwagger, 0f)
         
+        // === TÊTE AVEC ATTITUDE ===
         val headRadius = size/8
-        canvas.drawCircle(x, y - size * 0.4f, headRadius, stickPaint)
+        val headY = y - size * 0.4f
+        canvas.drawCircle(x, headY, headRadius, stickPaint)
         
+        // === CORPS ===
         val bodyTop = y - size * 0.3f
         val bodyBottom = y + size * 0.1f
         canvas.drawLine(x, bodyTop, x, bodyBottom, stickPaint)
         
-        val shoulderY = bodyTop + size * 0.1f
-        val armLength = size * 0.25f
+        // === BRAS AVEC COUDES ET ATTITUDE ===
+        val shoulderY = bodyTop + size * 0.15f
+        val armLength = size * 0.3f
         
+        // Balancement des bras avec attitude
         val armSwing = when (actionAnimation) {
-            "SHOOT" -> 0f
-            "EXPLODE" -> sin(animationTime * 20) * 30f
-            else -> sin(walkCycle) * 15f
+            "SHOOT" -> 45f // Bras tendus pour tirer
+            "EXPLODE" -> sin(animationTime * 25) * 60f // Mouvement frénétique
+            "JUMP" -> -30f // Bras vers le haut
+            else -> sin(walkCycle) * 20f + 10f // Balancement naturel avec style
         }
         
-        val leftElbowX = x - armLength * cos(Math.toRadians((45f + armSwing).toDouble())).toFloat()
-        val leftElbowY = shoulderY + armLength * sin(Math.toRadians((45f + armSwing).toDouble())).toFloat() * 0.5f
-        val leftHandX = leftElbowX - armLength * 0.7f * cos(Math.toRadians((90f - armSwing).toDouble())).toFloat()
-        val leftHandY = leftElbowY + armLength * 0.7f * sin(Math.toRadians((90f - armSwing).toDouble())).toFloat()
+        // BRAS GAUCHE (épaule -> coude -> main)
+        val leftShoulderAngle = 30f + armSwing
+        val leftElbowX = x - armLength * 0.6f * cos(Math.toRadians(leftShoulderAngle.toDouble())).toFloat()
+        val leftElbowY = shoulderY + armLength * 0.6f * sin(Math.toRadians(leftShoulderAngle.toDouble())).toFloat()
+        
+        val leftForearmAngle = leftShoulderAngle + 45f
+        val leftHandX = leftElbowX - armLength * 0.5f * cos(Math.toRadians(leftForearmAngle.toDouble())).toFloat()
+        val leftHandY = leftElbowY + armLength * 0.5f * sin(Math.toRadians(leftForearmAngle.toDouble())).toFloat()
         
         canvas.drawLine(x, shoulderY, leftElbowX, leftElbowY, stickPaint)
         canvas.drawLine(leftElbowX, leftElbowY, leftHandX, leftHandY, stickPaint)
         
-        val rightElbowX = x + armLength * cos(Math.toRadians((45f - armSwing).toDouble())).toFloat()
-        val rightElbowY = shoulderY + armLength * sin(Math.toRadians((45f - armSwing).toDouble())).toFloat() * 0.5f
-        val rightHandX = rightElbowX + armLength * 0.7f * cos(Math.toRadians((90f + armSwing).toDouble())).toFloat()
-        val rightHandY = rightElbowY + armLength * 0.7f * sin(Math.toRadians((90f + armSwing).toDouble())).toFloat()
+        // BRAS DROIT (épaule -> coude -> main)
+        val rightShoulderAngle = 150f - armSwing
+        val rightElbowX = x + armLength * 0.6f * cos(Math.toRadians(rightShoulderAngle.toDouble())).toFloat()
+        val rightElbowY = shoulderY + armLength * 0.6f * sin(Math.toRadians(rightShoulderAngle.toDouble())).toFloat()
+        
+        val rightForearmAngle = rightShoulderAngle - 45f
+        val rightHandX = rightElbowX + armLength * 0.5f * cos(Math.toRadians(rightForearmAngle.toDouble())).toFloat()
+        val rightHandY = rightElbowY + armLength * 0.5f * sin(Math.toRadians(rightForearmAngle.toDouble())).toFloat()
         
         canvas.drawLine(x, shoulderY, rightElbowX, rightElbowY, stickPaint)
         canvas.drawLine(rightElbowX, rightElbowY, rightHandX, rightHandY, stickPaint)
         
+        // === JAMBES AVEC GENOUX ET ATTITUDE ===
         val hipY = bodyBottom
-        val legLength = size * 0.3f
+        val legLength = size * 0.35f
         
-        val leftLegSwing = sin(walkCycle) * 25f
-        val rightLegSwing = sin(walkCycle + PI.toFloat()) * 25f
+        // Démarche avec attitude - pas plus prononcés
+        val leftLegCycle = walkCycle
+        val rightLegCycle = walkCycle + PI.toFloat()
         
-        val leftKneeX = x - legLength * 0.6f * sin(Math.toRadians(leftLegSwing.toDouble())).toFloat()
-        val leftKneeY = hipY + legLength * 0.6f
-        val leftFootX = leftKneeX - legLength * 0.8f * sin(Math.toRadians((leftLegSwing * 0.7f).toDouble())).toFloat()
-        val leftFootY = hipY + legLength * 1.2f
+        val leftLegSwing = sin(leftLegCycle) * 35f
+        val rightLegSwing = sin(rightLegCycle) * 35f
+        
+        // JAMBE GAUCHE (hanche -> genou -> pied)
+        val leftThighAngle = 90f + leftLegSwing
+        val leftKneeX = x + legLength * 0.7f * sin(Math.toRadians(leftThighAngle.toDouble())).toFloat()
+        val leftKneeY = hipY + legLength * 0.7f * cos(Math.toRadians(leftThighAngle.toDouble())).toFloat()
+        
+        val leftShinAngle = leftThighAngle + 30f + abs(leftLegSwing) * 0.5f
+        val leftFootX = leftKneeX + legLength * 0.6f * sin(Math.toRadians(leftShinAngle.toDouble())).toFloat()
+        val leftFootY = leftKneeY + legLength * 0.6f * cos(Math.toRadians(leftShinAngle.toDouble())).toFloat()
         
         canvas.drawLine(x, hipY, leftKneeX, leftKneeY, stickPaint)
         canvas.drawLine(leftKneeX, leftKneeY, leftFootX, leftFootY, stickPaint)
         
-        val rightKneeX = x + legLength * 0.6f * sin(Math.toRadians(rightLegSwing.toDouble())).toFloat()
-        val rightKneeY = hipY + legLength * 0.6f
-        val rightFootX = rightKneeX + legLength * 0.8f * sin(Math.toRadians((rightLegSwing * 0.7f).toDouble())).toFloat()
-        val rightFootY = hipY + legLength * 1.2f
+        // JAMBE DROITE (hanche -> genou -> pied)
+        val rightThighAngle = 90f + rightLegSwing
+        val rightKneeX = x + legLength * 0.7f * sin(Math.toRadians(rightThighAngle.toDouble())).toFloat()
+        val rightKneeY = hipY + legLength * 0.7f * cos(Math.toRadians(rightThighAngle.toDouble())).toFloat()
+        
+        val rightShinAngle = rightThighAngle + 30f + abs(rightLegSwing) * 0.5f
+        val rightFootX = rightKneeX + legLength * 0.6f * sin(Math.toRadians(rightShinAngle.toDouble())).toFloat()
+        val rightFootY = rightKneeY + legLength * 0.6f * cos(Math.toRadians(rightShinAngle.toDouble())).toFloat()
         
         canvas.drawLine(x, hipY, rightKneeX, rightKneeY, stickPaint)
         canvas.drawLine(rightKneeX, rightKneeY, rightFootX, rightFootY, stickPaint)
