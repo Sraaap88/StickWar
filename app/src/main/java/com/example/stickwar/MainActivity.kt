@@ -6,7 +6,11 @@ import android.view.MotionEvent
 import android.Manifest
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.os.Handler
+import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.util.*
@@ -14,11 +18,12 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     
     private var gameView: StickFigureGameView? = null
-    private var isVoiceMode = false
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var isListening = false
+    private var restartHandler = Handler(Looper.getMainLooper())
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1
-        private const val VOICE_REQUEST_CODE = 100
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +32,8 @@ class MainActivity : AppCompatActivity() {
         
         gameView = findViewById(R.id.gameView)
         
-        // Tester les permissions et essayer la reconnaissance vocale
         if (checkPermissions()) {
-            tryVoiceRecognition()
+            tryAlternativeVoiceRecognition()
         } else {
             requestPermissions()
         }
@@ -47,120 +51,180 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                tryVoiceRecognition()
+                tryAlternativeVoiceRecognition()
             } else {
-                gameView?.setDebugMode("❌ Permission refusée - Mode tactile")
-                setTouchMode()
+                fallbackToTouch()
             }
         }
     }
     
-    private fun tryVoiceRecognition() {
+    private fun tryAlternativeVoiceRecognition() {
         try {
-            // Méthode 1: Intent direct Huawei/Android
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dites: hop, paf, boum")
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
+            // Essayer de créer le recognizer avec un package spécifique
+            val recognizer = SpeechRecognizer.createSpeechRecognizer(this, 
+                android.content.ComponentName("com.huawei.vassistant", 
+                "com.huawei.vassistant.service.VoiceRecognitionService"))
+            
+            if (recognizer != null) {
+                setupVoiceRecognition(recognizer)
+                gameView?.setDebugMode("🎤 Reconnaissance Huawei - Parlez continuellement!")
+            } else {
+                tryDefaultRecognition()
+            }
+        } catch (e: Exception) {
+            tryDefaultRecognition()
+        }
+    }
+    
+    private fun tryDefaultRecognition() {
+        try {
+            val recognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            if (recognizer != null) {
+                setupVoiceRecognition(recognizer)
+                gameView?.setDebugMode("🎤 Reconnaissance Android - Parlez continuellement!")
+            } else {
+                fallbackToTouch()
+            }
+        } catch (e: Exception) {
+            gameView?.setDebugMode("❌ Erreur: ${e.message}")
+            fallbackToTouch()
+        }
+    }
+    
+    private fun setupVoiceRecognition(recognizer: SpeechRecognizer) {
+        speechRecognizer = recognizer
+        
+        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) {
+                gameView?.setDebugMode("🎤 Écoute continue - Dites: hop, paf, boum!")
             }
             
-            // Vérifier si une app peut gérer cette intent
-            if (intent.resolveActivity(packageManager) != null) {
-                gameView?.setDebugMode("🎤 Mode vocal activé! Tapez pour parler")
-                isVoiceMode = true
-            } else {
-                gameView?.setDebugMode("❌ Aucune app de reconnaissance - Mode tactile")
-                setTouchMode()
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() {}
+            
+            override fun onError(error: Int) {
+                when (error) {
+                    SpeechRecognizer.ERROR_NO_MATCH -> {
+                        // Pas grave, on continue
+                        restartListening()
+                    }
+                    SpeechRecognizer.ERROR_NETWORK_TIMEOUT,
+                    SpeechRecognizer.ERROR_NETWORK -> {
+                        gameView?.setDebugMode("⚠️ Erreur réseau - Redémarrage...")
+                        restartListening()
+                    }
+                    SpeechRecognizer.ERROR_CLIENT -> {
+                        gameView?.setDebugMode("❌ Service bloqué - Mode tactile")
+                        fallbackToTouch()
+                    }
+                    else -> {
+                        gameView?.setDebugMode("⚠️ Erreur $error - Redémarrage...")
+                        restartListening()
+                    }
+                }
             }
-        } catch (e: Exception) {
-            gameView?.setDebugMode("❌ Erreur vocal: ${e.message} - Mode tactile")
-            setTouchMode()
-        }
+            
+            override fun onResults(results: Bundle?) {
+                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
+                    for (result in matches) {
+                        val command = result.lowercase(Locale.getDefault()).trim()
+                        if (handleVoiceCommand(command)) {
+                            break // Commande trouvée, arrêter de chercher
+                        }
+                    }
+                }
+                // Redémarrer immédiatement pour écoute continue
+                restartListening()
+            }
+            
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+        })
+        
+        startListening()
     }
     
-    private fun setTouchMode() {
-        isVoiceMode = false
-        gameView?.setDebugMode("🎮 Mode tactile: Gauche=HOP, Centre=PAF, Droite=BOUM")
-    }
-    
-    private fun startVoiceRecognition() {
+    private fun startListening() {
         try {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Dites: hop, paf, boum")
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             }
-            startActivityForResult(intent, VOICE_REQUEST_CODE)
+            speechRecognizer?.startListening(intent)
+            isListening = true
         } catch (e: Exception) {
-            gameView?.setDebugMode("❌ Erreur lancement vocal: ${e.message}")
+            gameView?.setDebugMode("❌ Erreur démarrage: ${e.message}")
+            fallbackToTouch()
         }
     }
     
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        
-        if (requestCode == VOICE_REQUEST_CODE && resultCode == RESULT_OK) {
-            val results = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            results?.let { matches ->
-                for (result in matches) {
-                    val command = result.lowercase(Locale.getDefault()).trim()
-                    gameView?.setDebugMode("Commande: '$command' - Tapez pour parler encore")
-                    handleVoiceCommand(command)
-                    break // Prendre la première commande
-                }
-            }
-        } else if (requestCode == VOICE_REQUEST_CODE) {
-            gameView?.setDebugMode("🎤 Reconnaissance annulée - Tapez pour réessayer")
+    private fun restartListening() {
+        if (isListening) {
+            restartHandler.postDelayed({
+                startListening()
+            }, 100) // Redémarrage rapide
         }
     }
     
-    private fun handleVoiceCommand(command: String) {
-        when {
+    private fun handleVoiceCommand(command: String): Boolean {
+        return when {
             command.contains("hop") || command.contains("saute") || command.contains("saut") -> {
                 gameView?.jump()
+                gameView?.setDebugMode("🎤 HOP! Continuez à parler...")
+                true
             }
             command.contains("paf") || command.contains("pan") || command.contains("tir") -> {
                 gameView?.shoot()
+                gameView?.setDebugMode("🎤 PAF! Continuez à parler...")
+                true
             }
             command.contains("boum") || command.contains("boom") || command.contains("explose") -> {
                 gameView?.explode()
+                gameView?.setDebugMode("🎤 BOUM! Continuez à parler...")
+                true
             }
-            else -> {
-                gameView?.setDebugMode("❓ '$command' non reconnu - Dites: hop, paf, boum")
-            }
+            else -> false
         }
     }
     
+    private fun fallbackToTouch() {
+        isListening = false
+        speechRecognizer?.destroy()
+        gameView?.setDebugMode("🎮 Mode tactile: Gauche=HOP, Centre=PAF, Droite=BOUM")
+    }
+    
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (event?.action == MotionEvent.ACTION_DOWN) {
-            if (isVoiceMode) {
-                // En mode vocal, tap = lancer reconnaissance
-                startVoiceRecognition()
-            } else {
-                // En mode tactile, tap = commande directe
-                val screenWidth = resources.displayMetrics.widthPixels
-                val x = event.x
-                
-                when {
-                    x < screenWidth / 3 -> {
-                        gameView?.jump()
-                        gameView?.setDebugMode("🎮 HOP! Gauche=HOP, Centre=PAF, Droite=BOUM")
-                    }
-                    x < screenWidth * 2 / 3 -> {
-                        gameView?.shoot()
-                        gameView?.setDebugMode("🎮 PAF! Gauche=HOP, Centre=PAF, Droite=BOUM")
-                    }
-                    else -> {
-                        gameView?.explode()
-                        gameView?.setDebugMode("🎮 BOUM! Gauche=HOP, Centre=PAF, Droite=BOUM")
-                    }
+        if (event?.action == MotionEvent.ACTION_DOWN && !isListening) {
+            val screenWidth = resources.displayMetrics.widthPixels
+            val x = event.x
+            
+            when {
+                x < screenWidth / 3 -> {
+                    gameView?.jump()
+                    gameView?.setDebugMode("🎮 HOP! Gauche=HOP, Centre=PAF, Droite=BOUM")
+                }
+                x < screenWidth * 2 / 3 -> {
+                    gameView?.shoot()
+                    gameView?.setDebugMode("🎮 PAF! Gauche=HOP, Centre=PAF, Droite=BOUM")
+                }
+                else -> {
+                    gameView?.explode()
+                    gameView?.setDebugMode("🎮 BOUM! Gauche=HOP, Centre=PAF, Droite=BOUM")
                 }
             }
             return true
         }
         return super.onTouchEvent(event)
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        isListening = false
+        speechRecognizer?.destroy()
+        restartHandler.removeCallbacksAndMessages(null)
     }
 }
