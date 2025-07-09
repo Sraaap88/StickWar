@@ -34,16 +34,23 @@ class MainActivity : AppCompatActivity() {
         
         gameView = findViewById(R.id.gameView)
         
-        // Vérifier si la reconnaissance vocale est disponible
+        // DIAGNOSTIC COMPLET - ÉTAPE PAR ÉTAPE
+        gameView?.setDebugMode("🔍 Starting diagnostic...")
+        
+        // Étape 1: Vérifier disponibilité
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            gameView?.setDebugMode("❌ Reconnaissance vocale non disponible")
+            gameView?.setDebugMode("❌ Speech recognition NOT available on this device")
             fallbackToTouch()
             return
         }
+        gameView?.setDebugMode("✅ Speech recognition available - checking permissions...")
         
+        // Étape 2: Vérifier permissions
         if (checkPermissions()) {
+            gameView?.setDebugMode("✅ Audio permission granted - setting up voice...")
             setupVoiceRecognition()
         } else {
+            gameView?.setDebugMode("⚠️ Requesting audio permission...")
             requestPermissions()
         }
     }
@@ -60,24 +67,29 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                gameView?.setDebugMode("✅ Permission granted - setting up voice...")
                 setupVoiceRecognition()
             } else {
-                gameView?.setDebugMode("❌ Permission audio refusée")
+                gameView?.setDebugMode("❌ Audio permission DENIED - touch mode only")
                 fallbackToTouch()
             }
         }
     }
     
     private fun setupVoiceRecognition() {
+        gameView?.setDebugMode("🔧 Creating speech recognizer...")
+        
         try {
             // Utiliser le recognizer par défaut (plus fiable)
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
             
             if (speechRecognizer == null) {
-                gameView?.setDebugMode("❌ Impossible de créer le recognizer")
+                gameView?.setDebugMode("❌ FAILED to create speech recognizer")
                 fallbackToTouch()
                 return
             }
+            
+            gameView?.setDebugMode("✅ Speech recognizer created - setting up listener...")
             
             speechRecognizer?.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
@@ -166,16 +178,19 @@ class MainActivity : AppCompatActivity() {
                 override fun onEvent(eventType: Int, params: Bundle?) {}
             })
             
+            gameView?.setDebugMode("✅ Listener set - starting first listen...")
             startListening()
             
         } catch (e: Exception) {
-            gameView?.setDebugMode("❌ Erreur setup: ${e.message}")
+            gameView?.setDebugMode("❌ Setup error: ${e.message}")
             fallbackToTouch()
         }
     }
     
     private fun startListening() {
         if (!isListening) {
+            gameView?.setDebugMode("🎤 Attempting to start listening...")
+            
             try {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -188,11 +203,14 @@ class MainActivity : AppCompatActivity() {
                 
                 speechRecognizer?.startListening(intent)
                 isListening = true
+                gameView?.setDebugMode("🎤 startListening() called - waiting for onReadyForSpeech...")
                 
             } catch (e: Exception) {
-                gameView?.setDebugMode("❌ Erreur démarrage: ${e.message}")
+                gameView?.setDebugMode("❌ Start error: ${e.message}")
                 fallbackToTouch()
             }
+        } else {
+            gameView?.setDebugMode("⚠️ Already listening - skipping start")
         }
     }
     
