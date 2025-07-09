@@ -81,12 +81,12 @@ class MainActivity : AppCompatActivity() {
             
             speechRecognizer?.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    gameView?.setDebugMode("🎤 Écoute active - Dites: HOP, PAF, BOUM!")
+                    gameView?.setDebugMode("🎤 Listening - Say: GO, FIRE, BOOM!")
                     restartAttempts = 0 // Reset compteur en cas de succès
                 }
                 
                 override fun onBeginningOfSpeech() {
-                    gameView?.setDebugMode("🎤 Parole détectée...")
+                    gameView?.setDebugMode("🎤 Speech detected...")
                 }
                 
                 override fun onRmsChanged(rmsdB: Float) {
@@ -99,17 +99,17 @@ class MainActivity : AppCompatActivity() {
                 
                 override fun onError(error: Int) {
                     val errorMessage = when (error) {
-                        SpeechRecognizer.ERROR_NO_MATCH -> "Aucun mot reconnu"
-                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Timeout réseau"
-                        SpeechRecognizer.ERROR_NETWORK -> "Erreur réseau"
-                        SpeechRecognizer.ERROR_AUDIO -> "Erreur audio"
-                        SpeechRecognizer.ERROR_SERVER -> "Erreur serveur"
-                        SpeechRecognizer.ERROR_CLIENT -> "Erreur client"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Timeout parole"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Permissions insuffisantes"
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer occupé"
-                        SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> "Trop de requêtes"
-                        else -> "Erreur inconnue ($error)"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No words recognized"
+                        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout"
+                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                        SpeechRecognizer.ERROR_AUDIO -> "Audio error"
+                        SpeechRecognizer.ERROR_SERVER -> "Server error"
+                        SpeechRecognizer.ERROR_CLIENT -> "Client error"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Speech timeout"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy"
+                        SpeechRecognizer.ERROR_TOO_MANY_REQUESTS -> "Too many requests"
+                        else -> "Unknown error ($error)"
                     }
                     
                     gameView?.setDebugMode("⚠️ $errorMessage")
@@ -122,16 +122,16 @@ class MainActivity : AppCompatActivity() {
                         }
                         SpeechRecognizer.ERROR_CLIENT,
                         SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
-                            // Erreurs fatales
-                            gameView?.setDebugMode("❌ Erreur fatale - Mode tactile")
+                            // Fatal errors
+                            gameView?.setDebugMode("❌ Fatal error - Touch mode")
                             fallbackToTouch()
                         }
                         else -> {
-                            // Autres erreurs - on essaie de redémarrer
+                            // Other errors - try to restart
                             if (restartAttempts < maxRestartAttempts) {
-                                scheduleRestart(1000) // Délai encore plus long
+                                scheduleRestart(1000) // Even longer delay
                             } else {
-                                gameView?.setDebugMode("❌ Trop d'erreurs - Mode tactile")
+                                gameView?.setDebugMode("❌ Too many errors - Touch mode")
                                 fallbackToTouch()
                             }
                         }
@@ -140,25 +140,25 @@ class MainActivity : AppCompatActivity() {
                 
                 override fun onResults(results: Bundle?) {
                     results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
-                        gameView?.setDebugMode("🎤 Résultats: ${matches.joinToString(", ")}")
+                        gameView?.setDebugMode("🎤 Results: ${matches.joinToString(", ")}")
                         
                         for (result in matches) {
                             val command = result.lowercase(Locale.getDefault()).trim()
                             if (handleVoiceCommand(command)) {
-                                break // Commande trouvée
+                                break // Command found
                             }
                         }
                     }
                     
-                    // Redémarrer pour écoute continue
-                    scheduleRestart(300) // Délai raisonnable
+                    // Restart for continuous listening
+                    scheduleRestart(300) // Reasonable delay
                 }
                 
                 override fun onPartialResults(partialResults: Bundle?) {
-                    // Afficher les résultats partiels pour le debug
+                    // Show partial results for debugging
                     partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
                         if (matches.isNotEmpty()) {
-                            gameView?.setDebugMode("🎤 Partiel: ${matches[0]}")
+                            gameView?.setDebugMode("🎤 Partial: ${matches[0]}")
                         }
                     }
                 }
@@ -179,7 +179,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1000)
@@ -208,19 +208,20 @@ class MainActivity : AppCompatActivity() {
     
     private fun handleVoiceCommand(command: String): Boolean {
         return when {
-            command.contains("hop") || command.contains("saute") || command.contains("saut") || command.contains("jump") -> {
+            // Simple English words that all phones understand
+            command.contains("go") || command.contains("jump") || command.contains("up") -> {
                 gameView?.jump()
-                gameView?.setDebugMode("🎤 HOP détecté! Continuez...")
+                gameView?.setDebugMode("🎤 JUMP detected! Say: GO, FIRE, BOOM")
                 true
             }
-            command.contains("paf") || command.contains("pan") || command.contains("tir") || command.contains("shoot") -> {
+            command.contains("fire") || command.contains("shoot") || command.contains("bang") -> {
                 gameView?.shoot()
-                gameView?.setDebugMode("🎤 PAF détecté! Continuez...")
+                gameView?.setDebugMode("🎤 FIRE detected! Say: GO, FIRE, BOOM")
                 true
             }
-            command.contains("boum") || command.contains("boom") || command.contains("explose") || command.contains("explode") -> {
+            command.contains("boom") || command.contains("bomb") || command.contains("explode") -> {
                 gameView?.explode()
-                gameView?.setDebugMode("🎤 BOUM détecté! Continuez...")
+                gameView?.setDebugMode("🎤 BOOM detected! Say: GO, FIRE, BOOM")
                 true
             }
             else -> false
@@ -232,7 +233,7 @@ class MainActivity : AppCompatActivity() {
         speechRecognizer?.destroy()
         speechRecognizer = null
         restartHandler.removeCallbacksAndMessages(null)
-        gameView?.setDebugMode("🎮 Mode tactile: Gauche=HOP, Centre=PAF, Droite=BOUM")
+        gameView?.setDebugMode("🎮 Touch mode: Left=JUMP, Center=FIRE, Right=BOOM")
     }
     
     override fun onTouchEvent(event: MotionEvent?): Boolean {
@@ -243,15 +244,15 @@ class MainActivity : AppCompatActivity() {
             when {
                 x < screenWidth / 3 -> {
                     gameView?.jump()
-                    gameView?.setDebugMode("🎮 HOP! Touchez pour continuer...")
+                    gameView?.setDebugMode("🎮 JUMP! Touch to continue...")
                 }
                 x < screenWidth * 2 / 3 -> {
                     gameView?.shoot()
-                    gameView?.setDebugMode("🎮 PAF! Touchez pour continuer...")
+                    gameView?.setDebugMode("🎮 FIRE! Touch to continue...")
                 }
                 else -> {
                     gameView?.explode()
-                    gameView?.setDebugMode("🎮 BOUM! Touchez pour continuer...")
+                    gameView?.setDebugMode("🎮 BOOM! Touch to continue...")
                 }
             }
             return true
