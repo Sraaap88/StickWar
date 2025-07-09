@@ -1,6 +1,3 @@
-ction = "EXPLOSION!"
-    }
-}
 package com.example.stickwar
 
 import android.content.Context
@@ -38,6 +35,9 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
     private var movementSpeed = 200f
     private var movementDirection = 1f
     private var lastAction = "En attente..."
+    private var debugMessage = "🎮 StickWar - Reconnaissance vocale"
+    private var soundLevel = 0f
+    private var walkCycle = 0f
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -46,7 +46,6 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         stickY = centerY
         baseY = centerY
         
-        // Démarrer l'animation
         startAnimation()
     }
     
@@ -55,7 +54,7 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
             override fun run() {
                 update()
                 invalidate()
-                postDelayed(this, 16) // 60 FPS
+                postDelayed(this, 16)
             }
         }
         post(runnable)
@@ -65,7 +64,6 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         val deltaTime = 0.016f
         animationTime += deltaTime * 3f
         
-        // Mouvement automatique
         stickX += movementSpeed * movementDirection * deltaTime
         if (stickX > width - 100) {
             movementDirection = -1f
@@ -75,10 +73,11 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
             stickX = 100f
         }
         
-        // Physique du saut
+        walkCycle += deltaTime * 6f
+        
         if (isJumping) {
             stickY += velocityY * deltaTime
-            velocityY += 800f * deltaTime // Gravité
+            velocityY += 800f * deltaTime
             
             if (stickY >= baseY) {
                 stickY = baseY
@@ -88,7 +87,6 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
             }
         }
         
-        // Timer d'action
         if (actionTimer > 0) {
             actionTimer -= deltaTime
             if (actionTimer <= 0) {
@@ -100,62 +98,90 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
-        // Fond mi-noir mi-blanc horizontal
         canvas.drawRect(0f, 0f, width.toFloat(), height/2f, blackPaint)
         canvas.drawRect(0f, height/2f, width.toFloat(), height.toFloat(), whitePaint)
         
-        // Ligne de séparation
         val linePaint = Paint().apply {
             color = Color.GRAY
             strokeWidth = 4f
         }
         canvas.drawLine(0f, height/2f, width.toFloat(), height/2f, linePaint)
         
-        // Bonhomme allumette
         drawStickFigure(canvas, stickX, stickY)
         
-        // Debug
         debugPaint.color = if (stickY < centerY) Color.WHITE else Color.BLACK
-        canvas.drawText("🎮 StickWar - Dites: hop, paf, boum", 20f, 60f, debugPaint)
-        canvas.drawText("Dernière action: $lastAction", 20f, height - 20f, debugPaint)
+        canvas.drawText(debugMessage, 20f, 60f, debugPaint)
+        canvas.drawText("Action: $lastAction", 20f, height - 20f, debugPaint)
     }
     
     private fun drawStickFigure(canvas: Canvas, x: Float, y: Float) {
         val size = 120f * scale
         
-        // Couleur selon position
         stickPaint.color = if (y < centerY) Color.WHITE else Color.BLACK
         
-        // Animation selon l'action
         val wobble = when (actionAnimation) {
             "JUMP" -> sin(animationTime * 10) * 5f
             "SHOOT" -> sin(animationTime * 20) * 3f
             "EXPLODE" -> sin(animationTime * 30) * 8f
-            else -> sin(animationTime) * 2f
+            else -> sin(walkCycle * 0.5f) * 1f
         }
         
         canvas.save()
         canvas.translate(wobble, 0f)
         
-        // Tête
-        canvas.drawCircle(x, y - size/2, size/8, stickPaint)
+        val headRadius = size/8
+        canvas.drawCircle(x, y - size * 0.4f, headRadius, stickPaint)
         
-        // Corps
-        canvas.drawLine(x, y - size/3, x, y + size/3, stickPaint)
+        val bodyTop = y - size * 0.3f
+        val bodyBottom = y + size * 0.1f
+        canvas.drawLine(x, bodyTop, x, bodyBottom, stickPaint)
         
-        // Bras avec animation
-        val armOffset = when (actionAnimation) {
-            "SHOOT" -> 20f
-            "EXPLODE" -> 30f
-            else -> 0f
+        val shoulderY = bodyTop + size * 0.1f
+        val armLength = size * 0.25f
+        
+        val armSwing = when (actionAnimation) {
+            "SHOOT" -> 0f
+            "EXPLODE" -> sin(animationTime * 20) * 30f
+            else -> sin(walkCycle) * 15f
         }
-        canvas.drawLine(x, y - size/6, x - size/4, y + armOffset, stickPaint)
-        canvas.drawLine(x, y - size/6, x + size/4, y - armOffset, stickPaint)
         
-        // Jambes avec marche
-        val legOffset = sin(animationTime * 4) * 10f
-        canvas.drawLine(x, y + size/3, x - size/4 + legOffset, y + size/2, stickPaint)
-        canvas.drawLine(x, y + size/3, x + size/4 - legOffset, y + size/2, stickPaint)
+        val leftElbowX = x - armLength * cos(Math.toRadians((45f + armSwing).toDouble())).toFloat()
+        val leftElbowY = shoulderY + armLength * sin(Math.toRadians((45f + armSwing).toDouble())).toFloat() * 0.5f
+        val leftHandX = leftElbowX - armLength * 0.7f * cos(Math.toRadians((90f - armSwing).toDouble())).toFloat()
+        val leftHandY = leftElbowY + armLength * 0.7f * sin(Math.toRadians((90f - armSwing).toDouble())).toFloat()
+        
+        canvas.drawLine(x, shoulderY, leftElbowX, leftElbowY, stickPaint)
+        canvas.drawLine(leftElbowX, leftElbowY, leftHandX, leftHandY, stickPaint)
+        
+        val rightElbowX = x + armLength * cos(Math.toRadians((45f - armSwing).toDouble())).toFloat()
+        val rightElbowY = shoulderY + armLength * sin(Math.toRadians((45f - armSwing).toDouble())).toFloat() * 0.5f
+        val rightHandX = rightElbowX + armLength * 0.7f * cos(Math.toRadians((90f + armSwing).toDouble())).toFloat()
+        val rightHandY = rightElbowY + armLength * 0.7f * sin(Math.toRadians((90f + armSwing).toDouble())).toFloat()
+        
+        canvas.drawLine(x, shoulderY, rightElbowX, rightElbowY, stickPaint)
+        canvas.drawLine(rightElbowX, rightElbowY, rightHandX, rightHandY, stickPaint)
+        
+        val hipY = bodyBottom
+        val legLength = size * 0.3f
+        
+        val leftLegSwing = sin(walkCycle) * 25f
+        val rightLegSwing = sin(walkCycle + PI.toFloat()) * 25f
+        
+        val leftKneeX = x - legLength * 0.6f * sin(Math.toRadians(leftLegSwing.toDouble())).toFloat()
+        val leftKneeY = hipY + legLength * 0.6f
+        val leftFootX = leftKneeX - legLength * 0.8f * sin(Math.toRadians((leftLegSwing * 0.7f).toDouble())).toFloat()
+        val leftFootY = hipY + legLength * 1.2f
+        
+        canvas.drawLine(x, hipY, leftKneeX, leftKneeY, stickPaint)
+        canvas.drawLine(leftKneeX, leftKneeY, leftFootX, leftFootY, stickPaint)
+        
+        val rightKneeX = x + legLength * 0.6f * sin(Math.toRadians(rightLegSwing.toDouble())).toFloat()
+        val rightKneeY = hipY + legLength * 0.6f
+        val rightFootX = rightKneeX + legLength * 0.8f * sin(Math.toRadians((rightLegSwing * 0.7f).toDouble())).toFloat()
+        val rightFootY = hipY + legLength * 1.2f
+        
+        canvas.drawLine(x, hipY, rightKneeX, rightKneeY, stickPaint)
+        canvas.drawLine(rightKneeX, rightKneeY, rightFootX, rightFootY, stickPaint)
         
         canvas.restore()
     }
@@ -183,5 +209,13 @@ class StickFigureGameView(context: Context, attrs: AttributeSet? = null) : View(
         actionTimer = 0.8f
         scale = 1.5f
         lastAction = "EXPLOSION!"
+    }
+    
+    fun setDebugMode(message: String) {
+        debugMessage = message
+    }
+    
+    fun updateSoundLevel(rmsdB: Float) {
+        soundLevel = rmsdB
     }
 }
