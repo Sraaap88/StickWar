@@ -11,7 +11,7 @@
     <application
         android:allowBackup="true"
         android:label="StickWar"
-        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        android:theme="@style/Theme.AppCompat">
         <activity 
             android:name=".MainActivity"
             android:exported="true"
