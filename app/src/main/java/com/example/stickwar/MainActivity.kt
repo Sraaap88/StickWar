@@ -4,19 +4,13 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.Manifest
 import android.content.pm.PackageManager
-import android.content.Intent
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.util.*
 
 class MainActivity : AppCompatActivity() {
     
     private var gameView: StickFigureGameView? = null
-    private var speechRecognizer: SpeechRecognizer? = null
-    private var isListening = false
     
     companion object {
         private const val PERMISSION_REQUEST_CODE = 1
@@ -29,7 +23,12 @@ class MainActivity : AppCompatActivity() {
         gameView = findViewById(R.id.gameView)
         
         if (checkPermissions()) {
-            initSpeechRecognition()
+            // Just check if speech recognition is available
+            if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                gameView?.setDebugMode("✅ Reconnaissance vocale disponible")
+            } else {
+                gameView?.setDebugMode("❌ Reconnaissance vocale non disponible")
+            }
         } else {
             requestPermissions()
         }
@@ -47,57 +46,14 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initSpeechRecognition()
-            }
-        }
-    }
-    
-    private fun initSpeechRecognition() {
-        speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
-        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onError(error: Int) {
-                if (isListening) startListening()
-            }
-            override fun onResults(results: Bundle?) {
-                results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.let { matches ->
-                    for (result in matches) {
-                        handleVoiceCommand(result.lowercase(Locale.getDefault()))
-                    }
+                if (SpeechRecognizer.isRecognitionAvailable(this)) {
+                    gameView?.setDebugMode("✅ Permission accordée + Reconnaissance dispo")
+                } else {
+                    gameView?.setDebugMode("❌ Permission OK mais reconnaissance indispo")
                 }
-                if (isListening) startListening()
+            } else {
+                gameView?.setDebugMode("❌ Permission refusée")
             }
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-        })
-        
-        startListening()
-    }
-    
-    private fun startListening() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
         }
-        speechRecognizer?.startListening(intent)
-        isListening = true
-    }
-    
-    private fun handleVoiceCommand(command: String) {
-        when {
-            command.contains("hop") || command.contains("saute") -> gameView?.jump()
-            command.contains("paf") || command.contains("pan") -> gameView?.shoot()
-            command.contains("boum") || command.contains("boom") -> gameView?.explode()
-        }
-    }
-    
-    override fun onDestroy() {
-        super.onDestroy()
-        isListening = false
-        speechRecognizer?.destroy()
     }
 }
